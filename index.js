@@ -554,9 +554,6 @@ function buildArray (location) {
   let functionCode = `
     function ${functionName} (obj) {
       // ${schemaRef}
-      if (obj instanceof Set) {
-        obj = Array.from(obj)
-      }
   `
 
   functionCode += `
@@ -783,13 +780,6 @@ function buildSingleTypeSerializer (location, input) {
   }
 }
 
-function sanitizeSchemaConst (schemaConst) {
-  if (schemaConst instanceof Set) {
-    return Array.from(schemaConst)
-  }
-  return schemaConst
-}
-
 function buildConstSerializer (location, input) {
   const schema = location.schema
   const type = schema.type
@@ -806,8 +796,7 @@ function buildConstSerializer (location, input) {
     `
   }
 
-  const schemaConst = sanitizeSchemaConst(schema.const)
-  code += `json += '${JSON.stringify(schemaConst)}'`
+  code += `json += '${JSON.stringify(schema.const)}'`
 
   if (hasNullType) {
     code += `
