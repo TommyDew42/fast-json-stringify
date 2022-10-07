@@ -4,7 +4,6 @@
 
 const merge = require('@fastify/deepmerge')()
 const clone = require('rfdc')({ proto: true })
-const { randomUUID } = require('crypto')
 
 const validate = require('./lib/schema-validator')
 const Serializer = require('./lib/serializer')
@@ -123,6 +122,8 @@ function build (schema, options) {
 
   const contextFunctionCode = `
     function main (input) {
+      ${convertSetToArrayCode()}
+
       let json = ''
       ${code}
       return json
@@ -139,7 +140,7 @@ function build (schema, options) {
     validator.addSchema(schema, schemaId)
   }
 
-  const dependenciesName = ['validator', 'serializer', contextFunctionCode]
+  const dependenciesName = ['validator', 'serializer', 'clone', contextFunctionCode]
 
   if (options.debugMode) {
     options.mode = 'debug'
@@ -162,8 +163,8 @@ function build (schema, options) {
   }
 
   /* eslint no-new-func: "off" */
-  const contextFunc = new Function('validator', 'serializer', contextFunctionCode)
-  const stringifyFunc = contextFunc(validator, serializer)
+  const contextFunc = new Function('validator', 'serializer', 'clone', contextFunctionCode)
+  const stringifyFunc = contextFunc(validator, serializer, clone)
 
   refResolver = null
   rootSchemaId = null
@@ -805,6 +806,50 @@ function buildConstSerializer (location, input) {
   }
 
   return code
+}
+
+// function convertSetToArray (obj) {
+//   if (typeof obj !== 'object') {
+//     return obj
+//   }
+
+//   for (const key in obj) {
+//     convertSetToArray(obj[key])
+
+//     if (obj[key] instanceof Set) {
+//       obj[key] = Array.from(obj[key])
+//     }
+//   }
+
+//   return obj
+// }
+
+function convertSetToArrayCode () {
+  return `
+    function convertSetToArray (obj) {
+      if (typeof obj !== 'object') {
+        return obj
+      }
+
+      if (obj instanceof Set) {
+        obj = Array.from(obj)
+      }
+
+      for (const key in obj) {
+        obj[key] = convertSetToArray(obj[key])
+
+        if (obj[key] instanceof Set) {
+          obj[key] = Array.from(obj[key])
+          console.log(obj[key])
+        }
+      }
+
+      return obj
+    }
+
+    input = clone(input)
+    input = convertSetToArray(input)
+  `
 }
 
 function buildValue (location, input) {
